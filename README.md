@@ -1,118 +1,156 @@
-## Image Classification with CNN
+# CNN Binary Image Classification with Semi-Supervised Learning
+
+This project performs binary classification on 48x48 grayscale images to detect the presence of craters (`1` = with crater, `0` = without crater) using a Convolutional Neural Network (CNN). It incorporates a **semi-supervised learning** approach by leveraging additional unlabeled data through **pseudo-labeling**.
+
+---
 
 ## Crater Detection Dataset Description
 
 For this task, the label is either `0` (without crater) or `1` (with crater). The images are 48x48 matrices in grayscale.
 
-In grayscale image data, pixel values range from 0 to 255 (as in this case), where:
+In grayscale image data, pixel values range from 0 to 255:
 - `0` represents black,
 - `255` represents white,
-- intermediate values represent various shades of gray.
+- intermediate values represent shades of gray.
 
-As a normalization step, the data was divided by 255, scaling pixel values to a range between 0 and 1. This is important for several reasons:
-- Improving model performance,
-- Reducing computational complexity,
-- Enhancing generalization.
+As a normalization step, pixel values are divided by 255 to scale them to the [0, 1] range. This:
+- Improves model performance,
+- Reduces computational complexity,
+- Enhances generalization.
 
 ### Class Imbalance
 
-The given dataset is imbalanced:
-- **63.85%** of images are labeled as `1` (with crater),
-- **36.15%** are labeled as `0` (without crater).
+The dataset is slightly imbalanced:
+- **63.85%** of images are labeled `1` (with crater),
+- **36.15%** are labeled `0` (without crater).
 
-Although the dataset is imbalanced, this case is not critical and can be addressed using appropriate techniques.
+Although imbalanced, this can be mitigated using techniques like pseudo-labeling.
 
 ### Additional Data
 
-In addition to the labeled training set, an extra dataset without labels was also provided.
+An extra unlabeled dataset is provided for semi-supervised learning.
 
-Figures below show examples of the dataset:
-- **Figure 1**: Example of an image with label `1` (with crater),
-- **Figure 2**: Example of an image with label `0` (without crater).
-
-*(Refer to `Figure 1` and `Figure 2` as shown in the corresponding documentation or notebook.)*
-
-
-# CNN Binary Image Classification with Semi-Supervised Learning
-
-This project trains a Convolutional Neural Network (CNN) to classify 48x48 grayscale images using binary labels (0 or 1). It also implements a basic semi-supervised learning approach by leveraging an additional unlabeled dataset.
+Example images:
+- **Figure 1**: Image with crater (`1`)
+- **Figure 2**: Image without crater (`0`)
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ├── cnn_classifier.py # Main Python script
+
 ├── DATA/
-│ ├── Xtrain1.npy # Main training image data (flattened)
-│ ├── Ytrain1.npy # Corresponding binary labels
-│ ├── Xtrain1_extra.npy # Extra unlabeled image data
-│ └── Xtest1.npy # Test image data for final prediction
+
+│ ├── Xtrain1.npy # Labeled training images
+
+│ ├── Ytrain1.npy # Binary labels for training
+
+│ ├── Xtrain1_extra.npy # Unlabeled extra images
+
+│ ├── Xtest1.npy # Final test images
+
+│ └── y_pred_final.npy # Output predictions
+
+├── MODELS/
+│ ├── model_initial.h5 # First trained model (supervised)
+
+│ └── model_final.h5 # Final model (after pseudo-labeling)
+
 ├── PLOTS/
-│ ├── learning_curve.png # Saved loss plot
-│ └── Precision-Recall_Curve.png # Saved PR curve
-└── DATA/
-└── y_pred_final.npy # Output predictions for submission
+
+│ ├── learning_curve.png # Training/validation loss plot
+
+│ ├── Precision-Recall_Curve.png # PR curve
+
+│ └── confusion_matrix.png # Confusion matrix
 
 
 
 ---
 
-## 🚀 What the Script Does
+## What the Script Does
 
-The main script performs the following:
+The main steps are:
 
-1. **Loads Training and Extra Data**
-   - Reads labeled and extra unlabeled images from `.npy` files.
-   - Reshapes and normalizes them for CNN input.
+1. **Load and Normalize Data**
+   - Reshape and scale grayscale images.
 
-2. **First Training Phase**
-   - Trains a CNN on labeled training data.
-   - Evaluates on a held-out validation set.
-   - Saves loss and precision-recall curves.
+2. **Initial Training Phase**
+   - CNN trained on labeled data only.
+   - Model saved and evaluated on a validation set.
 
-3. **Pseudo-labeling Phase**
-   - Uses the first model to predict on the unlabeled extra dataset.
-   - Selects the samples confidently predicted as class 0 (threshold: 0.25).
-   - Labels them as `0` and appends them to the original training set.
+3. **Pseudo-Labeling Phase**
+   - Predict on unlabeled data.
+   - Select high-confidence samples (probability < 0.25) as class `0`.
+   - Augment training dataset.
 
-4. **Second Training Phase**
-   - Trains a new CNN model on the augmented dataset.
-   - Evaluates performance and saves the model and plots.
+4. **Final Training Phase**
+   - Train a new CNN on the augmented dataset.
+   - Evaluate and save metrics.
 
 5. **Final Prediction**
-   - Uses the second model to predict labels for the final test set (`Xtest1.npy`).
-   - Saves predictions to `DATA/y_pred_final.npy`.
+   - Predict labels for the final test dataset.
+   - Save predictions to `DATA/y_pred_final.npy`.
 
 ---
 
-## 🧠 CNN Architecture
+## CNN Architecture
 
-- `Conv2D(16)` → `MaxPooling2D`
-- `Conv2D(32)` → `MaxPooling2D`
+- `Conv2D(16)` → `MaxPooling2D(3x3)`
+- `Conv2D(32)` → `MaxPooling2D(2x2)`
 - `Flatten` → `Dense(8)` → `Dropout(0.5)`
 - `Dense(1, sigmoid)` for binary classification
 
 ---
 
-## 🧪 Evaluation Metrics
+## Evaluation Metrics
 
 - Accuracy
-- F1 Score
+- F1 Score (macro)
 - Precision
 - Recall
-- Precision-Recall Curve (saved to `PLOTS/`)
+- **Precision-Recall Curve**
+- **Confusion Matrix**
+
+All plots are saved in the `PLOTS/` folder.
 
 ---
 
-## 💻 How to Run the Script
+## How to Run the Script
 
-### 1. Ensure Python Dependencies Are Installed
-
-```bash
-pip install numpy matplotlib scikit-learn tensorflow
-```
+### 1. Install Python Dependencies
 
 ```bash
-python cnn_script.py
+pip install numpy matplotlib seaborn scikit-learn tensorflow
 ```
 
+### 2. Run the Script
+```bash
+python cnn_classifier.py
+```
+
+### 3. Optional Arguments
+
+You can customize the learning rate, epochs, and prediction thresholds:
+
+```bash
+python cnn_classifier.py \
+  --initial_lr 0.0003 \
+  --final_lr 0.0004 \
+  --initial_epochs 75 \
+  --final_epochs 50 \
+  --threshold_initial 0.5 \
+  --threshold_final 0.5
+```
+
+## Notes
+
+- The script uses ModelCheckpoint to save the best models based on validation loss.
+- The semi-supervised approach improves robustness by including pseudo-labeled examples from unlabeled data.
+- Outputs such as metrics and visualizations help monitor performance.
+
+
+## Sample Visualization Function
+
+Use the plot_image_48x48(data, n) helper function to view individual samples.
