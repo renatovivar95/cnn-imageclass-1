@@ -13,6 +13,9 @@ from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Dense
 from sklearn.metrics import precision_recall_curve
 import os
+from tensorflow.keras.callbacks import ModelCheckpoint
+from sklearn.metrics import confusion_matrix
+import seaborn as sns
 
 # FUNCTION TO PLOT A SINGLE IMAGE
 def plot_image_48x48(imageX, n):
@@ -53,15 +56,29 @@ def cnn_bin_classification(train_data_x, train_data_y, test_data_x, test_data_y,
         layers.Dropout(0.5),
         layers.Dense(1, activation='sigmoid'),
     ])
-    
+
     adam = keras.optimizers.Adam(learning_rate=l_rate)
     model.compile(optimizer=adam, loss='binary_crossentropy', metrics=['accuracy'])
-    
-    history = model.fit(train_data_x, train_data_y, epochs=n_epochs,
-                        validation_data=(test_data_x, test_data_y))
-    
-    model.save(str(file_name) if file_name else "cnn_model.h5")
 
+    # === Add ModelCheckpoint callback ===
+    os.makedirs("MODELS", exist_ok=True)
+    best_model_path = str(file_name) if file_name else "MODELS/best_model.h5"
+    checkpoint = ModelCheckpoint(
+        best_model_path, monitor='val_loss',
+        save_best_only=True, mode='min', verbose=1
+    )
+
+    history = model.fit(
+        train_data_x, train_data_y,
+        epochs=n_epochs,
+        validation_data=(test_data_x, test_data_y),
+        callbacks=[checkpoint]
+    )
+
+    # === Load the best weights before returning the model ===
+    model.load_weights(best_model_path)
+
+    # === (Your existing plotting and evaluation code follows below...) ===
     os.makedirs("PLOTS", exist_ok=True)
 
     plt.plot(history.history['loss'], label='Training Loss')
@@ -77,7 +94,7 @@ def cnn_bin_classification(train_data_x, train_data_y, test_data_x, test_data_y,
     
     loss, accuracy = model.evaluate(test_data_x, test_data_y)
     print(f"Validation Accuracy: {accuracy:.4f}")
-    
+
     y_pred_aux = model.predict(test_data_x)
     y_pred = (y_pred_aux > threshold).astype("int32")
 
@@ -91,7 +108,6 @@ def cnn_bin_classification(train_data_x, train_data_y, test_data_x, test_data_y,
     plt.savefig(plot_path)
     plt.close()
 
-
     f1 = f1_score(test_data_y, y_pred, average='macro')
     precision_score_val = precision_score(test_data_y, y_pred)
     recall_score_val = recall_score(test_data_y, y_pred)
@@ -100,7 +116,20 @@ def cnn_bin_classification(train_data_x, train_data_y, test_data_x, test_data_y,
     print(f"Precision: {precision_score_val:.4f}")
     print(f"Recall: {recall_score_val:.4f}")
 
+    # === Confusion Matrix ===
+    cm = confusion_matrix(test_data_y, y_pred)
+    plt.figure(figsize=(5, 4))
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', xticklabels=['Pred 0', 'Pred 1'], yticklabels=['True 0', 'True 1'])
+    plt.xlabel('Predicted Label')
+    plt.ylabel('True Label')
+    plt.title('Confusion Matrix')
+    plt.tight_layout()
+    plot_path = get_unique_filepath("PLOTS/confusion_matrix.png")
+    plt.savefig(plot_path)
+    plt.close()
+
     return model
+
 
 def main():
     parser = argparse.ArgumentParser(description="CNN Binary Classification with Semi-Supervised Learning")
